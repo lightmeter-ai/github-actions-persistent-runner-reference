@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "slots": [
+    "runner-01",
+    "runner-02",
+    "runner-03",
+    "runner-04",
+    "runner-05",
+    "runner-06",
+    "runner-07",
+    "runner-08"
+  ],
+  "unit_template": "actions.runner.example-org.example-repo.{slot}.service"
+}
