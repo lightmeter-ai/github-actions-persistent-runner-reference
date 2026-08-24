@@ -203,7 +203,7 @@ class SlotSnapshot:
             self.listener_pid,
             self.listener_starttime,
         )
-        if any(not isinstance(item, int) or item < 0 for item in numeric):
+        if any(type(item) is not int or item < 0 for item in numeric):
             raise SafetyError("snapshot process identity is invalid")
         if self.running and any(item < 1 for item in numeric):
             raise SafetyError("running snapshot lacks exact process identity")
@@ -240,10 +240,10 @@ class JournalStore:
     """Private, atomic lifecycle journal storage."""
 
     def __init__(self, root: Path) -> None:
-        # Canonicalize only an absent leaf.  This accepts common physical-parent
-        # aliases such as macOS /var -> /private/var without ever following an
-        # existing state-root symlink.
-        if not root.exists() and not root.is_symlink():
+        # Canonicalize the parent while leaving the leaf unresolved.  This accepts
+        # common physical-parent aliases such as macOS /var -> /private/var
+        # without ever following an existing state-root symlink.
+        if not root.is_symlink():
             root = root.parent.resolve() / root.name
         self.root = root
         self.journal = self.root / "journal.json"
@@ -278,9 +278,17 @@ class JournalStore:
             return
         try:
             self.root.mkdir(mode=0o700)
-            os.chmod(self.root, 0o700)
+        except FileExistsError:
+            # Another controller may have won the first-start creation race.
+            # Do not alter what appeared; the validation below must prove it safe.
+            pass
         except OSError as error:
             raise SafetyError(f"state root cannot be created: {error}") from error
+        else:
+            try:
+                os.chmod(self.root, 0o700)
+            except OSError as error:
+                raise SafetyError(f"state root cannot be secured: {error}") from error
         self._validate_root()
         self._fsync_directory(self.root.parent)
 
@@ -511,7 +519,7 @@ class LifecycleController:
         if original == desired or slots[slot]["generation"] != original:
             raise SafetyError("active transaction generation disagrees with slot state")
         if (
-            not isinstance(active["deadline_epoch"], int)
+            type(active["deadline_epoch"]) is not int
             or active["deadline_epoch"] < 1
         ):
             raise SafetyError("active transaction deadline is invalid")

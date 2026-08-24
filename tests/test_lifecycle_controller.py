@@ -11,6 +11,7 @@ from contextlib import redirect_stdout
 from dataclasses import replace
 from io import StringIO
 from pathlib import Path
+from unittest import mock
 
 from reference.lifecycle_controller import (
     Config,
@@ -127,6 +128,62 @@ class LifecycleControllerTests(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(os.lstat(self.state_root).st_mode), 0o700)
         self.assertEqual(stat.S_IMODE(os.lstat(self.store.journal).st_mode), 0o600)
         self.assertEqual(self.controller.inspect(), state)
+
+    def test_existing_root_under_parent_alias_is_accepted(self) -> None:
+        physical_parent = self.root / "physical"
+        physical_parent.mkdir()
+        alias_parent = self.root / "alias"
+        alias_parent.symlink_to(physical_parent, target_is_directory=True)
+        physical_state_root = physical_parent / "state"
+        physical_state_root.mkdir(mode=0o700)
+        os.chmod(physical_state_root, 0o700)
+
+        store = JournalStore(alias_parent / "state")
+        store.ensure_root()
+
+        self.assertEqual(store.root, physical_state_root.resolve())
+
+    def test_state_root_leaf_symlink_is_rejected(self) -> None:
+        target = self.root / "physical-state"
+        target.mkdir(mode=0o700)
+        os.chmod(target, 0o700)
+        leaf_alias = self.root / "state-alias"
+        leaf_alias.symlink_to(target, target_is_directory=True)
+        store = JournalStore(leaf_alias)
+
+        with self.assertRaisesRegex(SafetyError, "physical same-owner"):
+            store.ensure_root()
+
+        self.assertEqual(store.root, leaf_alias)
+
+    def test_concurrent_safe_root_creation_is_accepted(self) -> None:
+        original_mkdir = Path.mkdir
+
+        def create_then_report_race(path: Path, *args, **kwargs) -> None:
+            original_mkdir(path, *args, **kwargs)
+            os.chmod(path, 0o700)
+            raise FileExistsError("created concurrently")
+
+        with mock.patch.object(Path, "mkdir", new=create_then_report_race):
+            self.store.ensure_root()
+
+        self.assertEqual(stat.S_IMODE(os.lstat(self.state_root).st_mode), 0o700)
+
+    def test_concurrent_unsafe_root_creation_fails_closed(self) -> None:
+        original_mkdir = Path.mkdir
+
+        def create_unsafe_then_report_race(path: Path, *args, **kwargs) -> None:
+            original_mkdir(path, *args, **kwargs)
+            os.chmod(path, 0o755)
+            raise FileExistsError("created concurrently")
+
+        with (
+            mock.patch.object(Path, "mkdir", new=create_unsafe_then_report_race),
+            self.assertRaisesRegex(SafetyError, "physical same-owner"),
+        ):
+            self.store.ensure_root()
+
+        self.assertEqual(stat.S_IMODE(os.lstat(self.state_root).st_mode), 0o755)
 
     def test_initialize_refuses_non_legacy_or_frozen_slot(self) -> None:
         original = self.backend.snapshot("runner-02")
@@ -523,6 +580,29 @@ class LifecycleControllerTests(unittest.TestCase):
 
         with self.assertRaisesRegex(SafetyError, "unexpected top-level"):
             self.controller.inspect()
+
+    def test_boolean_process_identity_and_deadline_fields_fail_closed(self) -> None:
+        self.initialize()
+        prepared = self.prepare()
+
+        for path in (
+            ("active", "snapshot", "main_pid"),
+            ("active", "snapshot", "main_starttime"),
+            ("active", "snapshot", "listener_pid"),
+            ("active", "snapshot", "listener_starttime"),
+            ("active", "deadline_epoch"),
+        ):
+            with self.subTest(path=path):
+                value = json.loads(json.dumps(prepared))
+                target = value
+                for key in path[:-1]:
+                    target = target[key]
+                target[path[-1]] = True
+                self.store.journal.write_text(json.dumps(value), encoding="ascii")
+                os.chmod(self.store.journal, 0o600)
+
+                with self.assertRaisesRegex(SafetyError, "invalid"):
+                    self.controller.inspect()
 
     def test_world_readable_journal_fails_closed(self) -> None:
         self.initialize()
