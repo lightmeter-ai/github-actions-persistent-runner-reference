@@ -23,9 +23,9 @@ The persistent-runner history included months of GitLab Runner and GitHub
 Actions operating experience. The later GitHub Actions lifecycle control plane
 went through an intensive multi-week implementation and hardening period.
 
-The code in this repository represents the GitHub Actions lifecycle model. It
-does not include a GitLab adapter or claim one implementation supported both
-providers unchanged.
+The code in this repository was distilled from the later GitHub Actions
+lifecycle model. It does not include a production adapter for GitLab or GitHub,
+or claim that one adapter supported both providers unchanged.
 
 ## What worked well
 

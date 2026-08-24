@@ -25,7 +25,7 @@ unfinished journal without recovering the original token.
 | `awaiting-verification` | The exact desired listener is journaled as running but not externally accepted | Stop that exact identity, restore the original generation, and start it |
 | `recovery-intent` | A prior recovery may itself have been interrupted | Resume only from the recorded recovery substep and exact snapshot |
 
-The reference always records rollback as the direction for an unfinished
+The controller always records rollback as the direction for an unfinished
 transaction. It completes that rollback only when each phase-appropriate
 identity is provable and otherwise retains durable authority. A different
 system might have a forward-recovery boundary, but that boundary must be
@@ -56,7 +56,7 @@ Recovery runs under the same non-blocking host lock as normal mutation:
 If any identity, idle, journal, or backend proof fails, recovery retains durable
 authority and stops. It does not clear the journal to make an alert disappear.
 In particular, a crash after a start changed live state but before the returned
-process identity was journaled is ambiguous. The reference refuses to stop or
+process identity was journaled is ambiguous. The controller refuses to stop or
 adopt that process merely because it has the expected unit and generation.
 
 ## Deadlines

@@ -1,11 +1,11 @@
-Persistent GitHub Actions Runner Lifecycle Reference
+Persistent CI Runner Lifecycle Controller
 Copyright 2026 Lightmeter Ltd
 
-This repository is a source-only, sanitized reference derived from a retired
+This repository is a source-only, sanitized controller derived from a retired
 internal runner lifecycle system developed at Lightmeter. The published source
 was substantially adapted to remove deployment-specific identifiers and the
 privileged host backend.
 
-The broader operating history included GitLab Runner and GitHub Actions. The
-code in this snapshot models the later GitHub Actions lifecycle controller and
-does not include a GitLab adapter.
+The operating history began with GitLab Runner and later included GitHub
+Actions. The code in this snapshot was distilled from the later lifecycle
+controller and does not include a production adapter for either provider.

@@ -2,7 +2,7 @@
 
 ## Security posture
 
-This repository is an unsupported historical reference. It contains no live
+This repository contains an unsupported historical controller. It has no live
 host backend and makes no claim that adapting its protocol will make a runner
 secure. Persistent CI runners execute untrusted or semi-trusted build inputs;
 their host boundary deserves the same care as any privileged multi-tenant
@@ -44,9 +44,9 @@ caches, and credentials must all remain attributable to the selected slot.
 PIDs, cgroup paths, and service names can be reused. The journal therefore
 binds multiple identity fields and rechecks them immediately before mutation.
 
-## Threats and reference mitigations
+## Threats and included mitigations
 
-| Threat | Reference mitigation |
+| Threat | Included mitigation |
 |---|---|
 | Acting on the wrong slot | Static slot set and exact unit template |
 | PID reuse | PID plus process start time |

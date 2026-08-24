@@ -1,20 +1,27 @@
-# Persistent GitHub Actions runners on one Hetzner host
+# Persistent CI runner lifecycle controller
 
-> **Archived reference:** This repository preserves a historical system for
-> study. It is not maintained or supported. It may contain assumptions that are
-> unsafe or incorrect for your environment. Review and test every operation,
+> **Archived and unsupported:** This repository preserves the controller core
+> from a retired system. It is not maintained and may contain assumptions that
+> are unsafe or incorrect for your environment. Review and test every operation,
 > especially privileged cleanup or service-control operations, before adapting
 > it.
 
-This project distills the lifecycle and crash-recovery model used to operate
-eight persistent GitHub Actions runner listeners on one Hetzner CCX33 server.
-It was built for a small team that wanted high CI throughput from one
-predictably priced Linux host.
+This project is a journaled coordination controller for planned maintenance and
+generation changes across multiple persistent CI runner listeners on one Linux
+host. It selects one exact idle slot, records mutation intent before acting,
+coordinates freeze, stop, change, and restart operations through a backend, and
+preserves a deterministic rollback path after a crash or failed verification.
 
-The source is a reference, not a drop-in runner installer. It contains the
-journaled controller, a backend contract, an in-memory demonstration backend,
-and focused recovery tests. It intentionally does **not** contain a privileged
-systemd, cgroup, Docker-cleanup, cloud, credential, or GitHub API backend.
+It is not a daemon, hypervisor, runner, host image, cloud-provisioning script,
+or drop-in runner manager. The published source contains the controller, a
+backend contract, an in-memory demonstration backend, and focused recovery
+tests. It intentionally does **not** contain a privileged systemd, cgroup,
+Docker-cleanup, cloud, credential, or CI-provider API backend.
+
+The historical system originated with GitLab Runner and was later adapted for
+GitHub Actions. Its final deployment operated eight persistent listeners on one
+Hetzner CCX33 server for a small team that wanted high CI throughput from a
+predictably priced Linux host.
 
 ## Workload served
 
@@ -27,7 +34,7 @@ system served a team of two to three engineers at this scale:
 | Pull requests merged, excluding Dependabot | 489 |
 | Average opened PRs across four consecutive seven-day intervals | 124.5 per interval |
 | Seven-day opened-PR range | 83–188 |
-| Fixed-runner GitHub Actions job runs | 30,361 |
+| Fixed-host CI job runs, measured through GitHub Actions | 30,361 |
 | Fixed-runner runtime | 110,709 runner-minutes |
 
 The pull-request totals came from GitHub organization search with
@@ -61,7 +68,7 @@ for the next job. Several listeners on one host can also interfere with each
 other. A cleanup or upgrade that acts on the wrong process, cgroup, service, or
 slot can interrupt unrelated work.
 
-The reference controller concentrates on that boundary:
+The lifecycle controller concentrates on that boundary:
 
 1. admit only one exact idle slot;
 2. record mutation intent durably before acting;
@@ -77,7 +84,7 @@ See [Architecture](docs/architecture.md),
 
 ## What is included
 
-- [`reference/lifecycle_controller.py`](reference/lifecycle_controller.py):
+- [`runner_controller/lifecycle_controller.py`](runner_controller/lifecycle_controller.py):
   standard-library Python state machine, atomic journal, exact identity model,
   backend protocol, and in-memory backend.
 - [`tests/test_lifecycle_controller.py`](tests/test_lifecycle_controller.py):
@@ -85,12 +92,12 @@ See [Architecture](docs/architecture.md),
 - [`examples/run_demo.py`](examples/run_demo.py): a complete transaction that
   writes only to a temporary directory and uses only the in-memory backend.
 - [`examples/config.example.json`](examples/config.example.json): the historical
-  eight-slot shape with synthetic organization and repository names.
+  eight-slot shape with a provider-neutral synthetic service name.
 - Architecture, recovery, threat-model, and retirement documentation.
 
 ## What is not included
 
-- Runner registration or GitHub authentication.
+- Runner registration or CI-provider authentication.
 - A systemd or cgroup mutation backend.
 - Docker cleanup, workspace deletion, cache pruning, or process killing.
 - Host provisioning, firewall rules, SSH routes, secrets, or cloud resources.
@@ -104,14 +111,14 @@ create more risk than reusable value. The backend protocol shows where those
 operations belonged without pretending that one deployment's safety checks are
 portable.
 
-## GitHub and GitLab history
+## GitLab origin and later GitHub implementation
 
-Earlier versions of the persistent host were used with GitLab Runner. The
-reference code in this repository is the later GitHub Actions implementation
-and does not provide a GitLab adapter. It distills months of operating
-experience, including an intensive multi-week implementation and hardening
-period for the GitHub Actions version. This is a source-only snapshot; it does
-not contain the private infrastructure repository's history.
+The persistent host was originally used with GitLab Runner. The controller in
+this repository was distilled from the later GitHub Actions implementation and
+does not provide either provider's production adapter. It captures months of
+operating experience, including an intensive multi-week implementation and
+hardening period for the later version. This source-only snapshot does not
+contain the private infrastructure repository's history.
 
 ## Why it was retired
 
@@ -145,7 +152,7 @@ network service.
 The controller's only command-line operation is read-only inspection:
 
 ```sh
-python3 reference/lifecycle_controller.py \
+python3 runner_controller/lifecycle_controller.py \
   inspect examples/config.example.json /path/to/state-root
 ```
 
@@ -171,7 +178,7 @@ operation, not invoking `systemctl`.
 
 ## Project status and support
 
-The repository is intentionally archived after its first reference release.
+The repository is intentionally archived after its first public release.
 There is no support, vulnerability-fix, compatibility, or future-release
 commitment. See [SUPPORT.md](SUPPORT.md) and [SECURITY.md](SECURITY.md).
 

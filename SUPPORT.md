@@ -1,6 +1,6 @@
 # Support
 
-This repository is an archived historical reference. Lightmeter does not
+This repository is an archived historical source release. Lightmeter does not
 provide support for installing, adapting, operating, or debugging it.
 
 In particular:

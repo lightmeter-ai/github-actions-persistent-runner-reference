@@ -13,7 +13,7 @@ from io import StringIO
 from pathlib import Path
 from unittest import mock
 
-from reference.lifecycle_controller import (
+from runner_controller.lifecycle_controller import (
     Config,
     FakeBackend,
     JournalStore,
@@ -66,12 +66,12 @@ class CrashingBackend(FakeBackend):
 
 class LifecycleControllerTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.temporary = tempfile.TemporaryDirectory(prefix="runner-reference-test.")
+        self.temporary = tempfile.TemporaryDirectory(prefix="runner-controller-test.")
         self.root = Path(self.temporary.name)
         self.state_root = self.root / "state"
         self.config = Config(
             slots=("runner-01", "runner-02"),
-            unit_template="actions.runner.example-org.example-repo.{slot}.service",
+            unit_template="persistent-ci-runner.{slot}.service",
         )
         self.backend = FakeBackend(self.config)
         self.store = JournalStore(self.state_root)
@@ -627,7 +627,7 @@ class LifecycleControllerTests(unittest.TestCase):
         self.initialize()
         changed = Config(
             slots=self.config.slots,
-            unit_template="actions.runner.example-org.different-repo.{slot}.service",
+            unit_template="persistent-ci-runner-different.{slot}.service",
         )
         changed_controller = LifecycleController(
             changed, self.store, FakeBackend(changed)

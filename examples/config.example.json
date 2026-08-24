@@ -10,5 +10,5 @@
     "runner-07",
     "runner-08"
   ],
-  "unit_template": "actions.runner.example-org.example-repo.{slot}.service"
+  "unit_template": "persistent-ci-runner.{slot}.service"
 }

@@ -2,8 +2,8 @@
 
 ## Unsupported snapshot
 
-This repository is an archived reference with no supported versions and no
-commitment to investigate or fix vulnerabilities in the code.
+This repository contains an archived controller with no supported versions and
+no commitment to investigate or fix vulnerabilities in the code.
 
 The project intentionally contains no production backend, credentials, runner
 registration, service-control commands, Docker cleanup, cloud configuration,

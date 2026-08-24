@@ -13,7 +13,7 @@ from pathlib import Path
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from reference.lifecycle_controller import (
+from runner_controller.lifecycle_controller import (
     Config,
     FakeBackend,
     JournalStore,
@@ -26,7 +26,7 @@ from reference.lifecycle_controller import (
 def main() -> None:
     config = Config(
         slots=("runner-01", "runner-02"),
-        unit_template="actions.runner.example-org.example-repo.{slot}.service",
+        unit_template="persistent-ci-runner.{slot}.service",
     )
     backend = FakeBackend(config)
     token = new_operation_token()

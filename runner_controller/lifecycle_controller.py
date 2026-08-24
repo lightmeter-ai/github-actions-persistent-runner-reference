@@ -1,4 +1,4 @@
-"""Journaled, one-slot-at-a-time lifecycle reference for persistent CI runners.
+"""Journaled, one-slot-at-a-time lifecycle controller for persistent CI runners.
 
 This module deliberately ships without a privileged host backend.  The
 ``Backend`` protocol and ``FakeBackend`` preserve the state-machine and recovery

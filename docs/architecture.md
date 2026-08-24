@@ -2,8 +2,8 @@
 
 ## Scope
 
-The reference models a controller that changes one persistent runner slot while
-the other slots on the host continue serving work. It preserves the durable
+The published controller changes one persistent runner slot while the other
+slots on the host continue serving work. It preserves the durable
 coordination and recovery logic but ships no privileged host backend.
 
 The historical topology was one Linux Hetzner CCX33 server with eight
@@ -121,7 +121,7 @@ step and a durable recovery substep. Thaw, stop, generation apply, and restart
 each receive their own intent boundary. Recovery clears active authority only
 after the exact journaled original listener is observed running and not frozen.
 If a restart succeeded but crashed before its new process identity was saved,
-the reference refuses to infer ownership from the unit and generation alone.
+the controller refuses to infer ownership from the unit and generation alone.
 
 Each forward or recovery attempt also has a deadline. The controller checks it
 before every mutation and before final acceptance. Expiry retains the journal;
@@ -130,7 +130,7 @@ extending the expired forward operation.
 
 ## Admission and provider evidence
 
-The reference accepts pre-change and post-change evidence as SHA-256 values. It
+The controller accepts pre-change and post-change evidence as SHA-256 values. It
 does not implement a provider API client. In the historical system, the
 controller was surrounded by an independent admission layer that proved runner
 identity, availability, and absence of assigned work before and after host
