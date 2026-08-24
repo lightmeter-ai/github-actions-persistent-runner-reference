@@ -623,6 +623,29 @@ class LifecycleControllerTests(unittest.TestCase):
         with self.assertRaisesRegex(SafetyError, "journal metadata is unsafe"):
             self.controller.inspect()
 
+    def test_journal_growth_after_metadata_check_fails_closed(self) -> None:
+        self.initialize()
+        original_fstat = os.fstat
+        grew = False
+
+        def grow_after_fstat(descriptor: int) -> os.stat_result:
+            nonlocal grew
+            metadata = original_fstat(descriptor)
+            if not grew:
+                grew = True
+                with self.store.journal.open("ab") as handle:
+                    handle.write(b" " * 131072)
+            return metadata
+
+        with (
+            mock.patch(
+                "runner_controller.lifecycle_controller.os.fstat",
+                side_effect=grow_after_fstat,
+            ),
+            self.assertRaisesRegex(SafetyError, "journal metadata is unsafe"),
+        ):
+            self.controller.inspect()
+
     def test_configuration_drift_fails_closed(self) -> None:
         self.initialize()
         changed = Config(
@@ -696,6 +719,84 @@ class LifecycleControllerTests(unittest.TestCase):
 
         with self.assertRaisesRegex(UsageError, "unsafe"):
             Config.from_json(link)
+
+    def test_config_file_permissions_and_hardlinks_fail_closed(self) -> None:
+        config_path = self.root / "unsafe-config.json"
+        config_path.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "slots": ["runner-01"],
+                    "unit_template": "persistent-ci-runner.{slot}.service",
+                }
+            ),
+            encoding="ascii",
+        )
+
+        os.chmod(config_path, 0o620)
+        with self.assertRaisesRegex(UsageError, "unsafe"):
+            Config.from_json(config_path)
+
+        os.chmod(config_path, 0o600)
+        hardlink = self.root / "hardlinked-config.json"
+        os.link(config_path, hardlink)
+        with self.assertRaisesRegex(UsageError, "unsafe"):
+            Config.from_json(config_path)
+
+    def test_config_file_wrong_owner_fails_closed(self) -> None:
+        config_path = self.root / "wrong-owner-config.json"
+        config_path.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "slots": ["runner-01"],
+                    "unit_template": "persistent-ci-runner.{slot}.service",
+                }
+            ),
+            encoding="ascii",
+        )
+
+        with (
+            mock.patch(
+                "runner_controller.lifecycle_controller.os.geteuid",
+                return_value=os.geteuid() + 1,
+            ),
+            self.assertRaisesRegex(UsageError, "unsafe"),
+        ):
+            Config.from_json(config_path)
+
+    def test_config_growth_after_metadata_check_fails_closed(self) -> None:
+        config_path = self.root / "growing-config.json"
+        config_path.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "slots": ["runner-01"],
+                    "unit_template": "persistent-ci-runner.{slot}.service",
+                }
+            ),
+            encoding="ascii",
+        )
+        original_fstat = os.fstat
+        grew = False
+
+        def grow_after_fstat(descriptor: int) -> os.stat_result:
+            nonlocal grew
+            metadata = original_fstat(descriptor)
+            if not grew:
+                grew = True
+                with config_path.open("ab") as handle:
+                    handle.write(b" " * 65536)
+            return metadata
+
+        with (
+            mock.patch(
+                "runner_controller.lifecycle_controller.os.fstat",
+                side_effect=grow_after_fstat,
+            ),
+            self.assertRaisesRegex(UsageError, "unsafe or oversized"),
+        ):
+            Config.from_json(config_path)
 
     def test_same_generation_request_is_refused(self) -> None:
         self.initialize()

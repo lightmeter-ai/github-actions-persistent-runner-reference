@@ -18,7 +18,9 @@ uses the same slot count with synthetic identities.
 `Config` declares an ordered slot set and a unit-name template. The controller
 hashes that configuration into the journal. A later invocation with a different
 slot set or unit template refuses the existing journal instead of guessing how
-the topology changed.
+the topology changed. The JSON loader accepts only a same-owner, single-link
+regular file that is not writable by its group or other users. It verifies the
+opened file identity and enforces the byte limit against the actual read.
 
 ### Controller
 

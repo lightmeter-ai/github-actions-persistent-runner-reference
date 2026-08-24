@@ -57,7 +57,9 @@ binds multiple identity fields and rechecks them immediately before mutation.
 | Crash during recovery | Durable `recovery-intent`, original forward step, recovery substep, and exact snapshot retained |
 | Token disclosure from state | Store only the token digest |
 | Journal replacement or tampering | Physical same-owner directory, strict modes, no symlinks, atomic replacement |
+| Configuration replacement or tampering | Same-owner, single-link regular file; no group/other write permission; opened identity rechecked |
 | Configuration drift | Hash the exact slot set and unit template into the journal |
+| Oversized configuration or journal | Bound the descriptor read and reject content over the declared limit |
 | Busy runner mutation | Re-prove idle before admission, commit, finalization, and recovery |
 | Stale operation authority | Enforce the journaled deadline before mutation or acceptance |
 | Ambiguous evidence | Fail closed and retain active authority |

@@ -34,6 +34,8 @@ class UsageError(RuntimeError):
 
 HASH_RE = re.compile(r"[0-9a-f]{64}")
 SLOT_RE = re.compile(r"[a-z][a-z0-9-]{0,31}")
+CONFIG_MAX_BYTES = 65536
+JOURNAL_MAX_BYTES = 131072
 STEPS = {
     "freeze-intent",
     "frozen",
@@ -124,17 +126,23 @@ class Config:
             raise UsageError(f"unknown slot: {slot}")
         return self.unit_template.format(slot=slot)
 
+    @staticmethod
+    def _metadata_is_safe(metadata: os.stat_result) -> bool:
+        return (
+            stat.S_ISREG(metadata.st_mode)
+            and metadata.st_uid == os.geteuid()
+            and stat.S_IMODE(metadata.st_mode) & 0o022 == 0
+            and metadata.st_nlink == 1
+            and metadata.st_size <= CONFIG_MAX_BYTES
+        )
+
     @classmethod
     def from_json(cls, path: Path) -> Config:
         try:
             metadata = os.lstat(path)
         except OSError as error:
             raise UsageError(f"configuration cannot be read: {error}") from error
-        if (
-            not stat.S_ISREG(metadata.st_mode)
-            or stat.S_ISLNK(metadata.st_mode)
-            or metadata.st_size > 65536
-        ):
+        if stat.S_ISLNK(metadata.st_mode) or not cls._metadata_is_safe(metadata):
             raise UsageError("configuration file is unsafe or oversized")
         flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
         try:
@@ -145,12 +153,16 @@ class Config:
                     raise UsageError(
                         "configuration identity changed while it was opened"
                     )
+                if not cls._metadata_is_safe(opened):
+                    raise UsageError("configuration file is unsafe or oversized")
                 with os.fdopen(descriptor, "rb", closefd=False) as handle:
-                    payload = handle.read(65537)
+                    payload = handle.read(CONFIG_MAX_BYTES + 1)
             finally:
                 os.close(descriptor)
         except OSError as error:
             raise UsageError(f"configuration cannot be read: {error}") from error
+        if len(payload) > CONFIG_MAX_BYTES:
+            raise UsageError("configuration file is unsafe or oversized")
         if not payload:
             raise UsageError("configuration file is empty")
         try:
@@ -342,19 +354,28 @@ class JournalStore:
             or not self._same_owner_mode(metadata, 0o600)
             or metadata.st_nlink != 1
             or metadata.st_size < 2
-            or metadata.st_size > 131072
+            or metadata.st_size > JOURNAL_MAX_BYTES
         ):
             raise SafetyError("journal metadata is unsafe")
         flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
         descriptor = os.open(self.journal, flags)
         try:
             opened = os.fstat(descriptor)
-            if opened.st_dev != metadata.st_dev or opened.st_ino != metadata.st_ino:
+            if (
+                opened.st_dev != metadata.st_dev
+                or opened.st_ino != metadata.st_ino
+                or not self._same_owner_mode(opened, 0o600)
+                or opened.st_nlink != 1
+                or opened.st_size < 2
+                or opened.st_size > JOURNAL_MAX_BYTES
+            ):
                 raise SafetyError("journal identity changed while it was opened")
             with os.fdopen(descriptor, "rb", closefd=False) as handle:
-                payload = handle.read(131073)
+                payload = handle.read(JOURNAL_MAX_BYTES + 1)
         finally:
             os.close(descriptor)
+        if len(payload) > JOURNAL_MAX_BYTES:
+            raise SafetyError("journal metadata is unsafe")
         try:
             return json.loads(payload)
         except ValueError as error:
